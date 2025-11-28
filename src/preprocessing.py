@@ -106,8 +106,22 @@ def export_subject_npz(
     tmax: float = 3.5,
     baseline=None,
     normalize: str = "zscore",
+    apply_euclidean_alignment: bool = True,
 ) -> None:
-    """Load a single subject recording, preprocess, and save X/y arrays to NPZ."""
+    """Load a single subject recording, preprocess, and save X/y arrays to NPZ.
+    
+    Args:
+        raw_path: Path to raw GDF file
+        out_path: Output path for NPZ file
+        event_id: Mapping of event names to codes (e.g., {"left": 769, "right": 770})
+        l_freq: Low cutoff for bandpass filter (Hz)
+        h_freq: High cutoff for bandpass filter (Hz)
+        tmin: Start time for epoch (seconds relative to event)
+        tmax: End time for epoch (seconds relative to event)
+        baseline: Baseline correction tuple or None
+        normalize: Normalization method ("zscore" or None)
+        apply_euclidean_alignment: Whether to apply EA for cross-subject alignment
+    """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     raw = mne.io.read_raw_gdf(raw_path, preload=True, verbose=False)
     events, mapping = mne.events_from_annotations(raw, verbose=False)
@@ -134,6 +148,12 @@ def export_subject_npz(
     y = np.array([code_to_idx[c] for c in labels], dtype=np.int64)
 
     X = epochs_data
+    
+    # Apply Euclidean Alignment BEFORE normalization (align to subject's own reference)
+    # This standardizes covariance structure across subjects for cross-subject transfer
+    if apply_euclidean_alignment:
+        X = euclidean_alignment(X)
+    
     if normalize:
         X = normalize_epochs(X, method=normalize)
 
@@ -151,14 +171,30 @@ def preprocess_all(
     tmax: float,
     baseline=None,
     normalize: str = "zscore",
+    apply_euclidean_alignment: bool = True,
 ) -> None:
-    """Process each subject file into an NPZ."""
+    """Process each subject file into an NPZ.
+    
+    Args:
+        subjects: List of subject identifiers (e.g., ["A01T", "A02T", ...])
+        raw_dir: Directory containing raw GDF files
+        processed_dir: Output directory for processed NPZ files
+        event_id: Mapping of event names to codes
+        l_freq: Low cutoff for bandpass filter (Hz)
+        h_freq: High cutoff for bandpass filter (Hz)
+        tmin: Start time for epoch (seconds relative to event)
+        tmax: End time for epoch (seconds relative to event)
+        baseline: Baseline correction tuple or None
+        normalize: Normalization method ("zscore" or None)
+        apply_euclidean_alignment: Apply EA per subject for cross-subject transfer
+    """
     raw_dir = Path(raw_dir)
     processed_dir = Path(processed_dir)
     for sid in subjects:
         raw_path = find_raw_file(raw_dir, sid)
         subj_name = raw_path.stem  # use actual filename stem for saved NPZ
         out_path = processed_dir / f"{subj_name}.npz"
+        print(f"Processing {sid} -> {out_path}")
         export_subject_npz(
             raw_path=raw_path,
             out_path=out_path,
@@ -169,7 +205,9 @@ def preprocess_all(
             tmax=tmax,
             baseline=baseline,
             normalize=normalize,
+            apply_euclidean_alignment=apply_euclidean_alignment,
         )
+    print(f"Preprocessing complete. Processed {len(list(subjects))} subjects.")
 
 
 def find_raw_file(raw_dir: Path, subject_id) -> Path:
