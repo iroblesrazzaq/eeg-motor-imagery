@@ -1,0 +1,42 @@
+dataset:
+  data_dir: data/processed
+  subjects: ["A01T","A02T","A03T","A04T","A05T","A06T","A07T","A08T","A09T"]  # use A01T..A09T for labeled training files
+  val_fraction: 0.15
+  test_fraction: 0.15
+  shuffle: true
+
+preprocessing:
+  l_freq: 8.0
+  h_freq: 30.0
+  tmin: 0.5
+  tmax: 3.5
+  baseline: null
+  normalize: zscore
+  event_id:
+    left: 769
+    right: 770
+    foot: 771
+    tongue: 772
+
+model:
+  n_classes: 4
+  dropout: 0.5
+  F1: 8
+  D: 2
+  F2: 16
+  kernel_length: 64
+  kernel_length_sep: 16
+  pool1: 4
+  pool2: 8
+
+training:
+  batch_size: 64
+  num_workers: 2
+  lr: 0.001
+  weight_decay: 0.0001
+  max_epochs: 120
+  patience: 15
+  device: auto
+  seed: 42
+  log_dir: reports
+  checkpoint_dir: checkpoints

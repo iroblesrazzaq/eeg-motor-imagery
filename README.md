@@ -1,13 +1,13 @@
 EEG Motor Imagery Decoding with EEGNet
 ======================================
 
-This project builds an end-to-end, production-style pipeline to decode motor imagery (left vs. right hand) from EEG using an EEGNet-style CNN, plus a classical CSP + LDA/SVM baseline. The outline below is a concrete checklist you can follow to stand up the codebase, run experiments, and report results.
+This project builds an end-to-end, production-style pipeline to decode motor imagery (left/right hand, foot, tongue) from EEG using an EEGNet-style CNN, plus a classical CSP + LDA/SVM baseline. The outline below is a concrete checklist you can follow to stand up the codebase, run experiments, and report results.
 
 Repository layout
 -----------------
 - `src/` — core code: datasets, preprocessing, models (EEGNet + baselines), train/eval scripts, utils.
 - `configs/` — YAML configs to drive experiments (dataset splits, model hyperparams, training settings).
-- `data/raw/` — downloaded EEG recordings (organized by subject/session).
+- `data/raw/` — downloaded EEG recordings (organized by subject/session). For BCI IV 2a, expect files like `A01T.gdf` (labeled training) and `A01E.gdf` (unlabeled eval).
 - `data/processed/` — cached epochs/features (NumPy/NPZ) for faster training.
 - `notebooks/` — exploratory analysis and result summaries.
 - `README.md` — this guide.
@@ -16,14 +16,14 @@ Phase 0 — Environment and scaffolding
 -------------------------------------
 - Create the repo and directories: `src/`, `configs/`, `data/raw/`, `data/processed/`, `notebooks/`.
 - Set up a Python env (conda/venv) and install: `mne`, `numpy`, `scipy`, `pandas`, `matplotlib`, `torch`, `scikit-learn`, `pyyaml`/`omegaconf`, optionally `tensorboard` or `wandb`.
-- Pick a dataset (e.g., BCI Competition IV 2a/2b). Download to `data/raw/subjectXX/`.
+- Pick a dataset (e.g., BCI Competition IV 2a/2b). For 2a, place labeled training files as `data/raw/A01T.gdf` ... `A09T.gdf` (use `T` not `E` for supervised training).
 - Add a minimal `pyproject.toml` or `requirements.txt` listing dependencies.
 
 Phase 1 — Exploratory loading (notebook)
 ----------------------------------------
 - In `notebooks/01_eda.ipynb`, load one subject with MNE, inspect channel names, sampling rate, event codes.
 - Plot a few raw channels and PSDs to verify 8–30 Hz content.
-- Identify event IDs for left/right MI and decide the epoch window relative to cue (e.g., 0.5–3.5 s).
+- Identify event IDs for left/right/foot/tongue MI and decide the epoch window relative to cue (e.g., 0.5–3.5 s).
 - Prototype epoch extraction to confirm shapes: `[trials, channels, time]` and class counts.
 
 Phase 2 — Preprocessing module
@@ -33,9 +33,9 @@ Phase 2 — Preprocessing module
   - `create_epochs(raw, events, event_id, tmin, tmax)`
   - `normalize_epochs(epochs_array, method="zscore")`
 - Write a script/notebook (`src/preprocess_all.py` or `notebooks/02_preprocess.ipynb`) to:
-  - Iterate over subjects in `data/raw/`.
-  - Apply filter → epoching → label extraction → normalization.
-  - Save `data/processed/subjectXX.npz` with `X`, `y`, and metadata.
+  - Iterate over subjects in `data/raw/` (e.g., `A01T.gdf`).
+  - Apply filter → epoching → label extraction (769=left, 770=right, 771=foot, 772=tongue) → normalization.
+  - Save `data/processed/A01T.npz` with `X`, `y`, and metadata.
 - Sanity checks: class balance, absence of NaNs, consistent shapes per subject.
 
 Phase 3 — Dataset and DataLoaders
@@ -50,8 +50,8 @@ Phase 4 — EEGNet model
   - Temporal conv (Conv2d) along time.
   - Depthwise spatial conv across channels.
   - Separable conv, pooling, batch norm, dropout.
-  - Final dense layer → logits for 2 classes.
-- Add a unit test script/notebook to run a forward pass on random input and verify output shape `[B, 2]`.
+  - Final dense layer → logits for 4 classes.
+- Add a unit test script/notebook to run a forward pass on random input and verify output shape `[B, 4]`.
 
 Phase 5 — Training loop
 -----------------------
@@ -101,7 +101,13 @@ Stretch ideas
 
 Next actions
 ------------
-- Pick dataset + download to `data/raw/`.
-- Stand up env + dependency file.
-- Implement preprocessing and NPZ export.
-- Build EEGNet + training loop; run a first overfit-on-small-subset smoke test.
+- Create the conda env (Python 3.11): `conda create -n eeg-mi python=3.11 && conda activate eeg-mi`
+- Install deps: `pip install -r requirements.txt` (CPU+MPS PyTorch from PyPI is fine).
+- Confirm BCI IV 2a labeled files are present as `data/raw/A01T.gdf`...`A09T.gdf` (adjust names in `src/preprocessing.py` if needed).
+- Preprocess a subject: `python -m src.preprocess_all --config configs/default.yaml`
+- Train EEGNet: `python -m src.train --config configs/default.yaml`
+- Evaluate saved checkpoint: `python -m src.eval --config configs/default.yaml --checkpoint checkpoints/best.pt`
+
+Notes on BCI IV 2a events
+-------------------------
+- The GDF annotations map string codes (e.g., "769") to internal integers. The preprocessing script looks up those mappings automatically; by default it uses left=769, right=770, foot=771, tongue=772.

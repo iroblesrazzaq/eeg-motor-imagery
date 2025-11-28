@@ -1,121 +1,18 @@
-# =========================
-# Raw & Processed Data Files
-# =========================
-
-# EEG data formats
-*.gdf
-*.edf
-*.bdf
-*.set
-*.fdt
-*.vhdr
-*.vmrk
-*.eeg
-*.cnt
-*.mat
-*.fif
-
-# Data directories
-data/raw/
-data/processed/
-data/interim/
-data/external/
-
-# Large binary files
-*.npy
-*.npz
-*.h5
-*.hdf5
-*.pkl
-*.pickle
-*.parquet
-*.feather
-
-# =========================
-# Python
-# =========================
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-.conda/
-
-# =========================
-# Jupyter Notebooks
-# =========================
 .ipynb_checkpoints/
-*.ipynb_checkpoints/
-
-# =========================
-# ML/DL Models & Outputs
-# =========================
-models/
-checkpoints/
-*.ckpt
-*.pt
-*.pth
-*.onnx
-*.pb
-*.tflite
-runs/
-logs/
-outputs/
-results/
-wandb/
-mlruns/
-
-# =========================
-# IDE & Editors
-# =========================
-.idea/
-.vscode/
+.venv/
+.env/
+*.pyc
+*.pyo
 *.swp
-*.swo
-*~
-.spyderproject
-.spyproject
+*.DS_Store
 
-# =========================
-# OS Generated
-# =========================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+repomix-output.xml
+checkpoints/
+reports/
+data/
+wandb/
+logs/
 
-# =========================
-# Misc
-# =========================
-*.log
-*.tmp
-*.temp
-.cache/
-.pytest_cache/
-.coverage
-htmlcov/
+*.lock
 
