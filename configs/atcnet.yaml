@@ -1,0 +1,42 @@
+dataset:
+  data_dir: data/processed
+  subjects: ["A01T","A02T","A03T","A04T","A05T","A06T","A07T","A08T","A09T"]
+  val_fraction: 0.1
+  shuffle: true
+
+preprocessing:
+  l_freq: 4.0
+  h_freq: 38.0
+  tmin: 0.5
+  tmax: 3.5
+  baseline: null
+  normalize: zscore
+  euclidean_alignment: true
+  event_id:
+    left: 769
+    right: 770
+
+model:
+  name: atcnet
+  n_classes: 2
+  sfreq: 250
+  # Temporal module: receptive field spans ~100 ms with stride to capture mu/beta rhythms
+  n_filters_time: 32
+  filter_time_length: 25
+  pool_time_length: 75
+  pool_time_stride: 15
+  n_filters_spat: 32
+  drop_prob: 0.5
+  attention: true
+
+training:
+  batch_size: 64
+  num_workers: 2
+  lr: 0.0007
+  weight_decay: 0.01
+  max_epochs: 60
+  patience: 8
+  device: auto
+  seed: 42
+  log_dir: reports/atcnet
+  checkpoint_dir: checkpoints/atcnet

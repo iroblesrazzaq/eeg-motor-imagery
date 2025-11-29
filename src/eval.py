@@ -8,13 +8,13 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from tqdm import tqdm
 
 from .datasets import create_dataloaders
-from .models import build_eegnet_from_config
+from .models import build_model_from_config
 from .utils import get_device, load_checkpoint
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Evaluate EEGNet checkpoint.")
-    parser.add_argument("--config", type=str, default="configs/default.yaml", help="Path to YAML config.")
+    parser = argparse.ArgumentParser(description="Evaluate a trained model checkpoint.")
+    parser.add_argument("--config", type=str, default="configs/eegnet.yaml", help="Path to YAML config.")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/best.pt", help="Path to checkpoint.")
     return parser.parse_args()
 
@@ -24,11 +24,19 @@ def load_config(path: str):
         return yaml.safe_load(f)
 
 
+def _prepare_inputs(batch, device, model_name: str):
+    eeg = batch["eeg"].to(device)
+    if model_name == "atcnet":
+        return eeg.squeeze(1)
+    return eeg
+
+
 def main():
     args = parse_args()
     config = load_config(args.config)
     dataset_cfg = config.get("dataset", {})
     train_cfg = config.get("training", {})
+    model_name = config.get("model", {}).get("name", "eegnet").lower()
 
     device = get_device(train_cfg.get("device", "auto"))
 
@@ -45,7 +53,7 @@ def main():
 
     sample_batch = next(iter(test_loader))
     _, _, n_channels, n_samples = sample_batch["eeg"].shape
-    model = build_eegnet_from_config(config, n_channels=n_channels, n_samples=n_samples).to(device)
+    model = build_model_from_config(config, n_channels=n_channels, n_samples=n_samples).to(device)
 
     checkpoint = load_checkpoint(args.checkpoint, map_location=device)
     model.load_state_dict(checkpoint["model_state"])
@@ -55,7 +63,7 @@ def main():
     all_labels = []
     with torch.no_grad():
         for batch in tqdm(test_loader, desc="Test", leave=False):
-            inputs = batch["eeg"].to(device)
+            inputs = _prepare_inputs(batch, device, model_name)
             labels = batch["label"].to(device)
             outputs = model(inputs)
             preds = outputs.argmax(dim=1)

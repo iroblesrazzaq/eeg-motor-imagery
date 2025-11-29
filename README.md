@@ -61,7 +61,7 @@ Phase 5 — Training loop
   - Build DataLoaders, initialize EEGNet, optimizer (Adam + weight decay), scheduler (optional), loss (CrossEntropy).
   - Train/val per epoch; track loss/accuracy; early stop on val accuracy; save best checkpoint.
   - Log metrics to CSV/JSON; optionally TensorBoard/W&B.
-- Add `configs/default.yaml` with dataset windowing, batch size, lr, epochs, dropout, etc.
+- Add model-specific configs (e.g., `configs/eegnet.yaml`, `configs/atcnet.yaml`) with dataset windowing, batch size, lr, epochs, dropout, etc.
 
 Phase 6 — Evaluation script
 ---------------------------
@@ -88,7 +88,7 @@ Phase 9 — Documentation and polish
 ----------------------------------
 - Flesh out this `README` with:
   - How to download data.
-  - Commands to preprocess, train, and evaluate (e.g., `python -m src.preprocess_all`, `python -m src.train --config configs/default.yaml`).
+  - Commands to preprocess, train, and evaluate (e.g., `python -m src.preprocess_all`, `python -m src.train --config configs/eegnet.yaml`).
   - Example results (update once available).
 - Add `LICENSE` and `.gitignore`.
 - Optionally add CI for lint/format and a small unit test for shapes.
@@ -104,9 +104,10 @@ Next actions
 - Create the conda env (Python 3.11): `conda create -n eeg-mi python=3.11 && conda activate eeg-mi`
 - Install deps: `pip install -r requirements.txt` (CPU+MPS PyTorch from PyPI is fine).
 - Confirm BCI IV 2a labeled files are present as `data/raw/A01T.gdf`...`A09T.gdf` (adjust names in `src/preprocessing.py` if needed).
-- Preprocess a subject: `python -m src.preprocess_all --config configs/default.yaml`
-- Train EEGNet: `python -m src.train --config configs/default.yaml`
-- Evaluate saved checkpoint: `python -m src.eval --config configs/default.yaml --checkpoint checkpoints/best.pt`
+- Preprocess a subject: `python -m src.preprocess_all --config configs/eegnet.yaml`
+- Train EEGNet: `python -m src.train --config configs/eegnet.yaml`
+- Train ATCNet: `python -m src.train --config configs/atcnet.yaml`
+- Evaluate saved checkpoint: `python -m src.eval --config configs/eegnet.yaml --checkpoint checkpoints/best.pt`
 
 Notes on BCI IV 2a events
 -------------------------

@@ -8,7 +8,7 @@ from .preprocessing import preprocess_all
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Preprocess BCI IV 2a subjects to NPZ.")
-    parser.add_argument("--config", type=str, default="configs/default.yaml", help="Path to YAML config.")
+    parser.add_argument("--config", type=str, default="configs/eegnet.yaml", help="Path to YAML config.")
     parser.add_argument("--no-ea", action="store_true", help="Disable Euclidean Alignment.")
     return parser.parse_args()
 

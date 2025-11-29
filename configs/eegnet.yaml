@@ -1,0 +1,41 @@
+dataset:
+  data_dir: data/processed
+  subjects: ["A01T","A02T","A03T","A04T","A05T","A06T","A07T","A08T","A09T"]
+  val_fraction: 0.1
+  shuffle: true
+
+preprocessing:
+  l_freq: 4.0  
+  h_freq: 40.0  
+  tmin: 0.5
+  tmax: 3.5
+  baseline: null
+  normalize: zscore
+  euclidean_alignment: true  
+  event_id:
+    left: 769
+    right: 770
+
+model:
+  name: eegnet
+  n_classes: 2  
+  dropout: 0.75  
+  F1: 8
+  D: 2
+  F2: 16
+  kernel_length: 125  
+  kernel_length_sep: 16
+  pool1: 4
+  pool2: 8
+
+training:
+  batch_size: 64
+  num_workers: 2
+  lr: 0.0005  
+  weight_decay: 0.01  
+  max_epochs: 60  
+  patience: 8  
+  device: auto
+  seed: 42
+  log_dir: reports
+  checkpoint_dir: checkpoints

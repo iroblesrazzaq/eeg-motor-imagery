@@ -47,57 +47,36 @@ class MotorImageryDataset(Dataset):
         return {"eeg": eeg, "label": torch.tensor(label), "subject": torch.tensor(subj_idx)}
 
 
-def stratified_split(
+def train_val_split(
     dataset: MotorImageryDataset,
     val_fraction: float,
-    test_fraction: float,
     seed: int = 42,
-) -> Tuple[Dataset, Dataset, Dataset]:
+) -> Tuple[Dataset, Dataset]:
+    """Split dataset into train and validation sets (no test set).
+    
+    Args:
+        dataset: The dataset to split
+        val_fraction: Fraction of data to use for validation (0 < val_fraction < 1)
+        seed: Random seed for reproducibility
+        
+    Returns:
+        Tuple of (train_dataset, val_dataset)
+    """
     labels = np.array(dataset.labels)
     total = len(dataset)
+    
     if total == 0:
         raise ValueError("Dataset is empty.")
-    if val_fraction + test_fraction >= 1.0:
-        raise ValueError("val_fraction + test_fraction must be < 1.0")
-
-    sss_test = StratifiedShuffleSplit(n_splits=1, test_size=test_fraction, random_state=seed)
-    train_val_idx, test_idx = next(sss_test.split(np.zeros(total), labels))
-
-    remaining_fraction = 1.0 - test_fraction
-    val_size_rel = val_fraction / remaining_fraction
-    sss_val = StratifiedShuffleSplit(n_splits=1, test_size=val_size_rel, random_state=seed)
-    train_idx, val_idx = next(sss_val.split(np.zeros(len(train_val_idx)), labels[train_val_idx]))
-
-    # Map back to original indices
-    train_indices = [int(train_val_idx[i]) for i in train_idx]
-    val_indices = [int(train_val_idx[i]) for i in val_idx]
-    test_indices = [int(i) for i in test_idx]
-
-    return Subset(dataset, train_indices), Subset(dataset, val_indices), Subset(dataset, test_indices)
-
-
-def create_dataloaders(
-    subjects: Sequence[str],
-    data_dir: str | Path,
-    batch_size: int,
-    val_fraction: float,
-    test_fraction: float,
-    num_workers: int = 0,
-    seed: int = 42,
-    shuffle: bool = True,
-):
-    """Create train/val/test dataloaders with stratified splits.
+    if val_fraction <= 0 or val_fraction >= 1.0:
+        raise ValueError("val_fraction must be in (0, 1)")
     
-    This function splits data from the given subjects into train/val/test sets.
-    For within-subject or mixed-subject training (NOT LOSO).
-    """
-    ds = MotorImageryDataset(subjects=subjects, data_dir=data_dir)
-    train_ds, val_ds, test_ds = stratified_split(ds, val_fraction=val_fraction, test_fraction=test_fraction, seed=seed)
-
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return train_loader, val_loader, test_loader
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=val_fraction, random_state=seed)
+    train_idx, val_idx = next(sss.split(np.zeros(total), labels))
+    
+    train_indices = [int(i) for i in train_idx]
+    val_indices = [int(i) for i in val_idx]
+    
+    return Subset(dataset, train_indices), Subset(dataset, val_indices)
 
 
 def create_loso_dataloaders(
@@ -153,10 +132,9 @@ def create_loso_dataloaders(
     
     # Create validation split from training data
     if val_fraction > 0:
-        train_ds, val_ds, _ = stratified_split(
+        train_ds, val_ds = train_val_split(
             train_full_ds,
             val_fraction=val_fraction,
-            test_fraction=0.0,  # No test split here; test is the held-out subject
             seed=seed
         )
     else:
