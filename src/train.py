@@ -188,12 +188,27 @@ def train_one_epoch(model, loader, criterion, optimizer, device, model_name: str
     return running_loss / total, correct / total
 
 
-def evaluate(model, loader, criterion, device, model_name: str):
-    """Evaluate model on given loader, return loss and accuracy."""
+def evaluate(model, loader, criterion, device, model_name: str, return_predictions: bool = False):
+    """Evaluate model on given loader, return loss and accuracy.
+    
+    Args:
+        model: PyTorch model to evaluate
+        loader: DataLoader for evaluation data
+        criterion: Loss function
+        device: Torch device
+        model_name: Name of model architecture (for input preprocessing)
+        return_predictions: If True, also return raw predictions and labels
+        
+    Returns:
+        If return_predictions=False: (loss, accuracy)
+        If return_predictions=True: (loss, accuracy, predictions, labels)
+    """
     model.eval()
     running_loss = 0.0
     correct = 0
     total = 0
+    all_preds = []
+    all_labels = []
     
     with torch.no_grad():
         for batch in loader:
@@ -206,7 +221,16 @@ def evaluate(model, loader, criterion, device, model_name: str):
             correct += (preds == labels).sum().item()
             total += labels.size(0)
             
-    return running_loss / total, correct / total
+            if return_predictions:
+                all_preds.extend(preds.cpu().numpy().tolist())
+                all_labels.extend(labels.cpu().numpy().tolist())
+    
+    avg_loss = running_loss / total
+    accuracy = correct / total
+    
+    if return_predictions:
+        return avg_loss, accuracy, np.array(all_preds), np.array(all_labels)
+    return avg_loss, accuracy
 
 
 def train_fold(
@@ -332,10 +356,20 @@ def train_fold(
     if best_model_state:
         model.load_state_dict(best_model_state)
     
-    test_loss, test_acc = evaluate(model, test_loader, criterion, device, model_name)
+    test_loss, test_acc, test_preds, test_labels = evaluate(
+        model, test_loader, criterion, device, model_name, return_predictions=True
+    )
     
     writer.add_scalar("Acc/test", test_acc, epoch)
     writer.close()
+    
+    # Save test predictions for detailed analysis (confusion matrices, etc.)
+    np.savez(
+        fold_dir / "test_predictions.npz",
+        y_pred=test_preds,
+        y_true=test_labels,
+        subject=fold_subject,
+    )
     
     # Save best model for this fold
     save_checkpoint(
