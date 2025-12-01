@@ -9,6 +9,9 @@ try:
 except ImportError:  # braindecode is optional unless ATCNet is requested
     BraindecodeATCNet = None
 
+# LaBraM is optional - only imported when needed
+LaBraMClassifier = None
+
 
 class EEGNet(nn.Module):
     """
@@ -144,11 +147,12 @@ def build_atcnet_from_config(config: dict, n_channels: int, n_samples: int):
         raise ValueError("model.sfreq must be set for ATCNet (sampling frequency in Hz).")
 
     # Required arguments
+    # Note: braindecode ATCNet uses 'n_times' for temporal dimension
     base_kwargs = {
         "n_chans": n_channels,
         "n_outputs": model_cfg.get("n_classes", 2),
         "n_classes": model_cfg.get("n_classes", 2),
-        "input_window_samples": n_samples,
+        "n_times": n_samples,
         "sfreq": sfreq,
     }
 
@@ -174,11 +178,87 @@ def build_atcnet_from_config(config: dict, n_channels: int, n_samples: int):
     return BraindecodeATCNet(**kwargs)
 
 
+def build_labram_from_config(config: dict, n_channels: int, n_samples: int):
+    """
+    Build LaBraM classifier from config.
+    
+    Required config keys:
+        model.checkpoint_path: Path to pretrained LaBraM weights
+        
+    Optional config keys:
+        model.n_classes: Number of classes (default: 2)
+        model.model_name: LaBraM variant (default: "labram_base_patch200_200")
+        model.unfreeze_last_n_layers: Layers to unfreeze (default: 8)
+        model.dropout: Dropout rate (default: 0.5)
+    """
+    global LaBraMClassifier
+    
+    # Lazy import to avoid dependency issues
+    if LaBraMClassifier is None:
+        try:
+            from .labram_wrapper import LaBraMClassifier as _LaBraMClassifier
+            from .labram_wrapper import load_labram_backbone
+            LaBraMClassifier = _LaBraMClassifier
+        except ImportError as e:
+            raise ImportError(
+                f"LaBraM wrapper not found: {e}\n"
+                "Ensure src/labram_wrapper.py exists and LaBraM is installed."
+            )
+    
+    model_cfg = config.get("model", {})
+    
+    # Required: checkpoint path
+    checkpoint_path = model_cfg.get("checkpoint_path")
+    if checkpoint_path is None:
+        raise ValueError(
+            "model.checkpoint_path must be set for LaBraM.\n"
+            "Download pretrained weights from: https://github.com/935963004/LaBraM"
+        )
+    
+    # Optional parameters
+    n_classes = model_cfg.get("n_classes", 2)
+    model_name = model_cfg.get("model_name", "labram_base_patch200_200")
+    unfreeze_last_n_layers = model_cfg.get("unfreeze_last_n_layers", 8)
+    dropout = model_cfg.get("dropout", 0.5)
+    
+    # Load backbone
+    from .labram_wrapper import load_labram_backbone
+    backbone = load_labram_backbone(checkpoint_path, model_name)
+    
+    # Build classifier
+    classifier = LaBraMClassifier(
+        backbone=backbone,
+        n_classes=n_classes,
+        n_channels=n_channels,
+        n_samples=n_samples,
+        unfreeze_last_n_layers=unfreeze_last_n_layers,
+        dropout=dropout,
+    )
+    
+    trainable, total = classifier.get_trainable_params()
+    print(f"LaBraM: {trainable:,} / {total:,} params trainable ({100*trainable/total:.1f}%)")
+    
+    return classifier
+
+
 def build_model_from_config(config: dict, n_channels: int, n_samples: int):
+    """
+    Build a model from configuration.
+    
+    Supported models:
+        - eegnet: Lightweight CNN for EEG (default)
+        - atcnet: Attention-based Temporal Convolutional Network
+        - labram: Large Brain Model (pretrained transformer)
+    """
     model_cfg = config.get("model", {})
     name = model_cfg.get("name", "eegnet").lower()
     if name == "eegnet":
         return build_eegnet_from_config(config, n_channels=n_channels, n_samples=n_samples)
     if name == "atcnet":
         return build_atcnet_from_config(config, n_channels=n_channels, n_samples=n_samples)
-    raise ValueError(f"Unsupported model name '{name}'. Use 'eegnet' or 'atcnet'.")
+    if name == "labram":
+        return build_labram_from_config(config, n_channels=n_channels, n_samples=n_samples)
+    raise ValueError(f"Unsupported model name '{name}'. Use 'eegnet', 'atcnet', or 'labram'.")
+
+
+

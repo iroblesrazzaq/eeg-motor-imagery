@@ -6,7 +6,7 @@ dataset:
 
 preprocessing:
   l_freq: 4.0  
-  h_freq: 40.0  
+  h_freq: 38.0  
   tmin: 0.5
   tmax: 3.5
   baseline: null
@@ -19,22 +19,22 @@ preprocessing:
 model:
   name: eegnet
   n_classes: 2  
-  dropout: 0.75  
+  dropout: 0.25
   F1: 8
   D: 2
   F2: 16
-  kernel_length: 125  
+  kernel_length: 64  
   kernel_length_sep: 16
   pool1: 4
   pool2: 8
 
 training:
   batch_size: 64
-  num_workers: 2
-  lr: 0.0005  
+  num_workers: 0  
+  lr: 0.0005
   weight_decay: 0.01  
-  max_epochs: 60  
-  patience: 8  
+  max_epochs: 120  
+  patience: 25  
   device: auto
   seed: 42
   log_dir: reports

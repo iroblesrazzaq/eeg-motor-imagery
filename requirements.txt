@@ -10,3 +10,7 @@ omegaconf
 tqdm
 tensorboard
 braindecode
+
+# LaBraM (Large Brain Model) - pretrained EEG transformer
+# Install via pip or clone the repo: https://github.com/935963004/LaBraM
+git+https://github.com/935963004/LaBraM.git

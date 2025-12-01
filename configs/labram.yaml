@@ -1,0 +1,86 @@
+# LaBraM Fine-tuning Configuration
+# 
+# Fine-tunes pretrained LaBraM (Large Brain Model) on BCI Competition IV 2a
+# for motor imagery classification.
+#
+# Usage:
+#   python -m src.finetune_labram --config configs/labram.yaml
+#
+# For Colab: Update checkpoint_path to point to your Google Drive location
+#   e.g., checkpoint_path: /content/drive/MyDrive/checkpoints/labram-base.pth
+
+dataset:
+  data_dir: data/processed
+  subjects: ["A01T","A02T","A03T","A04T","A05T","A06T","A07T","A08T","A09T"]
+  val_fraction: 0.1
+  shuffle: true
+
+preprocessing:
+  # Should match preprocessing used for EEGNet baseline
+  l_freq: 4.0
+  h_freq: 38.0
+  tmin: 0.5
+  tmax: 3.5
+  baseline: null
+  normalize: zscore
+  euclidean_alignment: true
+  event_id:
+    left: 769
+    right: 770
+
+model:
+  name: labram
+  n_classes: 2
+  
+  # Path to pretrained LaBraM checkpoint
+  # Download from: https://github.com/935963004/LaBraM
+  # For Colab: /content/drive/MyDrive/checkpoints/labram-base.pth
+  checkpoint_path: checkpoints/labram-base.pth
+  
+  # LaBraM model variant (check repo for available options)
+  model_name: labram_base_patch200_200
+  
+  # Number of transformer layers to unfreeze for fine-tuning
+  # Paper shows last 8 layers achieves ~equal performance to full fine-tuning
+  unfreeze_last_n_layers: 8
+  
+  # Classification head dropout
+  dropout: 0.5
+
+training:
+  # Smaller batch size for transformer memory requirements
+  batch_size: 32
+  num_workers: 0  # Set to 2-4 on Colab
+  
+  # Lower learning rate for fine-tuning pretrained model
+  lr: 0.0001
+  weight_decay: 0.01
+  
+  # Label smoothing helps with generalization
+  label_smoothing: 0.1
+  
+  max_epochs: 50
+  patience: 10
+  
+  device: auto  # Will use CUDA on Colab
+  seed: 42
+  
+  # Cosine annealing works well for transformers
+  lr_scheduler:
+    name: CosineAnnealingLR
+    T_max: 50
+    eta_min: 0.000001
+
+# Data augmentation (reuse from EEGNet experiments)
+# These help with cross-subject generalization
+augmentation:
+  gaussian_noise:
+    std: 0.1
+    p: 0.5
+  time_shift:
+    max_shift: 25
+    p: 0.5
+  amplitude_scale:
+    scale_range: [0.8, 1.2]
+    p: 0.5
+

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -47,6 +47,27 @@ class MotorImageryDataset(Dataset):
         return {"eeg": eeg, "label": torch.tensor(label), "subject": torch.tensor(subj_idx)}
 
 
+class TransformSubset(Dataset):
+    """Wrapper around a Subset that applies transforms.
+    
+    This allows applying different transforms to train vs val subsets
+    of the same base dataset.
+    """
+    
+    def __init__(self, subset: Subset, transform: Optional[Callable] = None):
+        self.subset = subset
+        self.transform = transform
+    
+    def __len__(self) -> int:
+        return len(self.subset)
+    
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        item = self.subset[idx]
+        if self.transform is not None:
+            item["eeg"] = self.transform(item["eeg"])
+        return item
+
+
 def train_val_split(
     dataset: MotorImageryDataset,
     val_fraction: float,
@@ -88,6 +109,7 @@ def create_loso_dataloaders(
     seed: int = 42,
     shuffle: bool = True,
     all_subjects: Optional[Sequence[str]] = None,
+    train_transform=None,
 ):
     """Create dataloaders for Leave-One-Subject-Out (LOSO) cross-validation.
     
@@ -100,6 +122,7 @@ def create_loso_dataloaders(
         seed: Random seed for reproducibility
         shuffle: Whether to shuffle training data
         all_subjects: Full list of subjects; defaults to ALL_SUBJECTS
+        train_transform: Optional transform/augmentation to apply to training data only
         
     Returns:
         train_loader: DataLoader for training (all subjects except leave_out_subject)
@@ -128,20 +151,23 @@ def create_loso_dataloaders(
     test_subjects = [leave_out_subject]
     
     # Create training dataset and split into train/val
+    # Note: we don't apply transform here - we wrap with TransformSubset later
     train_full_ds = MotorImageryDataset(subjects=train_subjects, data_dir=data_dir)
     
     # Create validation split from training data
     if val_fraction > 0:
-        train_ds, val_ds = train_val_split(
+        train_subset, val_ds = train_val_split(
             train_full_ds,
             val_fraction=val_fraction,
             seed=seed
         )
+        # Wrap train subset with augmentation transform (val gets no augmentation)
+        train_ds = TransformSubset(train_subset, transform=train_transform) if train_transform else train_subset
     else:
-        train_ds = train_full_ds
+        train_ds = TransformSubset(train_full_ds, transform=train_transform) if train_transform else train_full_ds
         val_ds = None
     
-    # Create test dataset (held-out subject)
+    # Create test dataset (held-out subject) - no augmentation
     test_ds = MotorImageryDataset(subjects=test_subjects, data_dir=data_dir)
     
     train_loader = DataLoader(
